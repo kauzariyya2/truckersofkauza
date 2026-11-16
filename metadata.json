@@ -1,0 +1,6 @@
+{
+  "name": "Auman Free Roam",
+  "description": "Open-ended 3D physics driving simulator featuring the 8x4 heavy tractor, manual gearbox, narrow roads, precision parking, and mixed vehicle traffic.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
