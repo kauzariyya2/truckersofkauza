@@ -161,6 +161,10 @@ export default function App() {
           setPhase('title');
         }}
       />
+
+      <div className="pointer-events-none absolute bottom-4 right-5 select-none text-xs font-semibold tracking-widest text-white/80 drop-shadow-md">
+        Developed by Mohammed yahya
+      </div>
     </main>
   );
 }
