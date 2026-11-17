@@ -845,6 +845,7 @@ export function PlayingHUD({
 
       <div className="touch-driving-controls fixed inset-x-0 bottom-2 z-30 items-end justify-between px-3 pointer-events-none">
         <div className="flex gap-2 pointer-events-auto">
+          {renderPedal('KeyC', 'CLUTCH')}
           {mobileSteeringMode === 'wheel' && (
             <button
               type="button"
@@ -904,7 +905,6 @@ export function PlayingHUD({
           )}
         </div>
         <div className="mobile-pedals pointer-events-auto">
-          {renderPedal('KeyC', 'CLUTCH')}
           {renderPedal('KeyS', 'BRAKE')}
           {renderPedal('KeyW', 'GAS')}
         </div>
