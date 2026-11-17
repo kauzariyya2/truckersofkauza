@@ -3,7 +3,14 @@ import { GameCanvas, type GameController } from './components/GameCanvas';
 import { PauseModal } from './components/PauseModal';
 import { PlayingHUD } from './components/PlayingHUD';
 import { TitleScreen } from './components/TitleScreen';
-import type { CustomCameraSettings, GamePhase, HudSnapshot, VehicleId } from './sim/types';
+import type {
+  CustomCameraSettings,
+  DriveControlKey,
+  GamePhase,
+  HudSnapshot,
+  MobileSteeringMode,
+  VehicleId,
+} from './sim/types';
 import { VEHICLE_SPECS } from './sim/vehicles';
 import { PARKING_BAYS } from './sim/worldData';
 
@@ -68,6 +75,8 @@ export default function App() {
   const [hud, setHud] = useState<HudSnapshot>(INITIAL_HUD);
   const [muted, setMuted] = useState(false);
   const [completedBayName, setCompletedBayName] = useState<string | null>(null);
+  const [orientationError, setOrientationError] = useState('');
+  const [mobileSteeringMode, setMobileSteeringMode] = useState<MobileSteeringMode>('wheel');
 
   const gameRef = useRef<GameController | null>(null);
 
@@ -88,6 +97,10 @@ export default function App() {
     gameRef.current?.switchVehicle(id);
   }, []);
 
+  const handleDriveControl = useCallback((key: DriveControlKey, amount: number) => {
+    gameRef.current?.setDriveControl(key, amount);
+  }, []);
+
   const handleBayCompleted = useCallback((_bayId: string, bayName: string) => {
     setCompletedBayName(bayName);
     setPhase('gameover');
@@ -98,6 +111,27 @@ export default function App() {
     gameRef.current?.teleportToBay(remaining.id);
     setPhase('playing');
   }, [hud.baysCompleted]);
+
+  const handleLandscapeRequest = async () => {
+    setOrientationError('');
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+
+      const orientation = screen.orientation as ScreenOrientation & {
+        lock?: (orientation: 'landscape') => Promise<void>;
+      };
+      if (orientation.lock) {
+        await orientation.lock('landscape');
+      } else {
+        setOrientationError('Rotate your phone to landscape to continue.');
+      }
+    } catch (error) {
+      const details = error instanceof Error ? ` ${error.message}` : '';
+      setOrientationError(`Automatic rotation is unavailable.${details} Rotate your phone manually.`);
+    }
+  };
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-[#090f1a] game-shell">
@@ -131,6 +165,9 @@ export default function App() {
           onShiftUp={() => gameRef.current?.shiftUp()}
           onShiftDown={() => gameRef.current?.shiftDown()}
           onSetGear={(g) => gameRef.current?.setGear(g)}
+          onDriveControl={handleDriveControl}
+          mobileSteeringMode={mobileSteeringMode}
+          onMobileSteeringModeChange={setMobileSteeringMode}
           onToggleHandbrake={() => gameRef.current?.toggleHandbrake()}
           onToggleAutoClutch={() => gameRef.current?.toggleAutoClutch()}
           onToggleLights={() => gameRef.current?.toggleLights()}
@@ -162,8 +199,30 @@ export default function App() {
         }}
       />
 
-      <div className="pointer-events-none absolute bottom-4 right-5 select-none text-xs font-semibold tracking-widest text-white/80 drop-shadow-md">
+      <div className="developer-credit pointer-events-none absolute bottom-4 right-5 select-none text-xs font-semibold tracking-widest text-white/80 drop-shadow-md">
         Developed by Mohammed yahya
+      </div>
+
+      <div className="mobile-portrait-overlay">
+        <div className="mobile-portrait-card">
+          <div className="text-4xl" aria-hidden="true">↻</div>
+          <h1 className="text-xl font-extrabold tracking-wide text-white">Rotate your phone</h1>
+          <p className="max-w-xs text-sm leading-relaxed text-slate-300">
+            This driving game is designed to be played in landscape mode.
+          </p>
+          <button
+            type="button"
+            className="rounded-lg border border-sky-300 bg-sky-600 px-5 py-3 text-sm font-bold text-white"
+            onClick={handleLandscapeRequest}
+          >
+            Try landscape mode
+          </button>
+          {orientationError && (
+            <p role="status" className="max-w-xs text-xs leading-relaxed text-amber-200">
+              {orientationError}
+            </p>
+          )}
+        </div>
       </div>
     </main>
   );

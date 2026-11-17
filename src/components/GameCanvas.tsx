@@ -9,6 +9,7 @@ import type {
   CameraMode,
   ControlInputs,
   CustomCameraSettings,
+  DriveControlKey,
   GamePhase,
   GearValue,
   HudSnapshot,
@@ -50,6 +51,7 @@ export interface GameController {
   shiftUp: () => void;
   shiftDown: () => void;
   setGear: (gear: GearValue) => void;
+  setDriveControl: (key: DriveControlKey, amount: number) => void;
   toggleHandbrake: () => void;
   toggleAutoClutch: () => void;
   toggleLights: () => void;
@@ -118,6 +120,7 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
   const mountRef = useRef<HTMLDivElement | null>(null);
   const phaseRef = useRef<GamePhase>(phase);
   phaseRef.current = phase;
+  const driveControlsRef = useRef<Record<DriveControlKey, number> | null>(null);
 
   const customCamRef = useRef<CustomCameraSettings>(customCamera);
   customCamRef.current = customCamera;
@@ -196,6 +199,14 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
       if (res.shifted) {
         sim.playerState.gearbox = res.next;
         sim.audio.playGearShift();
+      }
+    },
+    setDriveControl: (key: DriveControlKey, amount: number) => {
+      const driveControls = driveControlsRef.current;
+      if (!driveControls) return;
+      driveControls[key] = Math.max(0, Math.min(1, amount));
+      if (amount > 0) {
+        simRef.current?.audio.init();
       }
     },
     setGear: (gear: GearValue) => {
@@ -645,6 +656,21 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
 
     // 6. Unified Keyboard, Drag & Wheel Input State
     const keysHeld = new Set<string>();
+    const driveControls: Record<DriveControlKey, number> = {
+      KeyW: 0,
+      KeyS: 0,
+      KeyA: 0,
+      KeyD: 0,
+      KeyC: 0,
+    };
+    driveControlsRef.current = driveControls;
+    const driveControlKeys: DriveControlKey[] = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyC'];
+    const clearHeldControls = () => {
+      keysHeld.clear();
+      driveControlKeys.forEach((key) => {
+        driveControls[key] = 0;
+      });
+    };
     let pointerNormX = 0;
     let pointerNormY = 0;
     let isDraggingOrbit = false;
@@ -668,7 +694,7 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
       if (code === 'Escape' || code === 'KeyP') {
         if (curPhase === 'playing') {
           e.preventDefault();
-          keysHeld.clear();
+          clearHeldControls();
           callbacksRef.current.onPhaseChange('paused');
           return;
         } else if (curPhase === 'paused') {
@@ -768,7 +794,7 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
     };
 
     const handleClearHeld = () => {
-      keysHeld.clear();
+      clearHeldControls();
       isDraggingOrbit = false;
     };
 
@@ -943,11 +969,26 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
         if (sim.hitstopTimer > 0) {
           sim.hitstopTimer = Math.max(0, sim.hitstopTimer - dt);
         } else {
-          const throttle = keysHeld.has('KeyW') || keysHeld.has('ArrowUp') ? 1 : 0;
-          const brake = keysHeld.has('KeyS') || keysHeld.has('ArrowDown') ? 1 : 0;
-          const steerLeft = keysHeld.has('KeyA') || keysHeld.has('ArrowLeft') ? 1 : 0;
-          const steerRight = keysHeld.has('KeyD') || keysHeld.has('ArrowRight') ? 1 : 0;
-          const clutch = keysHeld.has('KeyC') || keysHeld.has('ShiftLeft') || keysHeld.has('ShiftRight');
+          const throttle = Math.max(
+            driveControls.KeyW,
+            keysHeld.has('KeyW') || keysHeld.has('ArrowUp') ? 1 : 0,
+          );
+          const brake = Math.max(
+            driveControls.KeyS,
+            keysHeld.has('KeyS') || keysHeld.has('ArrowDown') ? 1 : 0,
+          );
+          const steerLeft = Math.max(
+            driveControls.KeyA,
+            keysHeld.has('KeyA') || keysHeld.has('ArrowLeft') ? 1 : 0,
+          );
+          const steerRight = Math.max(
+            driveControls.KeyD,
+            keysHeld.has('KeyD') || keysHeld.has('ArrowRight') ? 1 : 0,
+          );
+          const clutch = Math.max(
+            driveControls.KeyC,
+            keysHeld.has('KeyC') || keysHeld.has('ShiftLeft') || keysHeld.has('ShiftRight') ? 1 : 0,
+          );
 
           const inputs: ControlInputs = {
             throttle,
@@ -1270,6 +1311,8 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
       cancelAnimationFrame(frameId);
       clearTimeout(frameId);
       resizeObserver.disconnect();
+      driveControlsRef.current = null;
+      clearHeldControls();
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleClearHeld);

@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   CameraMode,
   CustomCameraSettings,
+  DriveControlKey,
   GearValue,
   HudSnapshot,
+  MobileSteeringMode,
   TrailerLivery,
   TrailerVariant,
   VehicleId,
@@ -20,6 +22,9 @@ interface PlayingHUDProps {
   onShiftUp: () => void;
   onShiftDown: () => void;
   onSetGear: (gear: GearValue) => void;
+  onDriveControl: (key: DriveControlKey, amount: number) => void;
+  mobileSteeringMode: MobileSteeringMode;
+  onMobileSteeringModeChange: (mode: MobileSteeringMode) => void;
   onToggleHandbrake: () => void;
   onToggleAutoClutch: () => void;
   onToggleLights: () => void;
@@ -73,6 +78,9 @@ export function PlayingHUD({
   onShiftUp,
   onShiftDown,
   onSetGear,
+  onDriveControl,
+  mobileSteeringMode,
+  onMobileSteeringModeChange,
   onToggleHandbrake,
   onToggleAutoClutch,
   onToggleLights,
@@ -89,8 +97,161 @@ export function PlayingHUD({
   const [openMenu, setOpenMenu] = useState<'bays' | 'trailer' | null>(null);
   const [pickedVariant, setPickedVariant] = useState<TrailerVariant>(hud.activeTrailerVariant);
   const [pickedLivery, setPickedLivery] = useState<TrailerLivery>(hud.activeTrailerLivery);
+  const [showSteeringSettings, setShowSteeringSettings] = useState(false);
+  const [tiltStatus, setTiltStatus] = useState('');
+  const [wheelTurn, setWheelTurn] = useState(0);
+  const [pedalValues, setPedalValues] = useState<Record<DriveControlKey, number>>({
+    KeyW: 0,
+    KeyS: 0,
+    KeyA: 0,
+    KeyD: 0,
+    KeyC: 0,
+  });
   const pickedVariantRef = useRef<TrailerVariant>(hud.activeTrailerVariant);
   const pickedLiveryRef = useRef<TrailerLivery>(hud.activeTrailerLivery);
+  const activePointers = useRef(new Map<number, DriveControlKey>());
+  const steeringWheelPointer = useRef<number | null>(null);
+  const tiltNeutral = useRef<number | null>(null);
+
+  const updateAnalogControl = (key: DriveControlKey, event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.height === 0) return;
+    const amount = Math.max(0, Math.min(1, (rect.bottom - event.clientY) / rect.height));
+    onDriveControl(key, amount);
+    setPedalValues((current) => ({ ...current, [key]: amount }));
+  };
+
+  const startAnalogControl = (key: DriveControlKey, event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    activePointers.current.set(event.pointerId, key);
+    updateAnalogControl(key, event);
+  };
+
+  const releasePointerControl = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const key = activePointers.current.get(event.pointerId);
+    if (!key) return;
+    activePointers.current.delete(event.pointerId);
+    onDriveControl(key, 0);
+    setPedalValues((current) => ({ ...current, [key]: 0 }));
+  };
+
+  const startSteering = (key: 'KeyA' | 'KeyD', event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    activePointers.current.set(event.pointerId, key);
+    onDriveControl(key, 1);
+  };
+
+  const updateWheelSteering = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (steeringWheelPointer.current !== event.pointerId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width === 0) return;
+    const amount = Math.max(-1, Math.min(1, (rect.left + rect.width / 2 - event.clientX) / (rect.width / 2)));
+    onDriveControl('KeyA', Math.max(0, amount));
+    onDriveControl('KeyD', Math.max(0, -amount));
+    setWheelTurn(amount);
+  };
+
+  const releaseWheelSteering = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (steeringWheelPointer.current !== event.pointerId) return;
+    steeringWheelPointer.current = null;
+    onDriveControl('KeyA', 0);
+    onDriveControl('KeyD', 0);
+    setWheelTurn(0);
+  };
+
+  const selectSteeringMode = async (mode: MobileSteeringMode) => {
+    if (mode !== 'tilt') {
+      onMobileSteeringModeChange(mode);
+      setTiltStatus('');
+      setWheelTurn(0);
+      return;
+    }
+
+    if (!window.isSecureContext || !('DeviceOrientationEvent' in window)) {
+      setTiltStatus('Tilt steering needs a supported motion sensor and a secure HTTPS connection.');
+      return;
+    }
+
+    try {
+      const sensor = window.DeviceOrientationEvent as typeof DeviceOrientationEvent & {
+        requestPermission?: () => Promise<'granted' | 'denied'>;
+      };
+      if (sensor.requestPermission && (await sensor.requestPermission()) !== 'granted') {
+        setTiltStatus('Motion sensor permission was not granted. Choose another steering mode or allow sensor access.');
+        return;
+      }
+
+      onMobileSteeringModeChange('tilt');
+      setWheelTurn(0);
+      setTiltStatus('Tilt enabled. Hold the phone comfortably, then lean left or right.');
+    } catch (error) {
+      const details = error instanceof Error ? ` ${error.message}` : '';
+      setTiltStatus(`Could not enable tilt steering.${details}`);
+    }
+  };
+
+  useEffect(() => {
+    tiltNeutral.current = null;
+    let handleOrientation: ((event: DeviceOrientationEvent) => void) | null = null;
+    if (mobileSteeringMode === 'tilt') {
+      handleOrientation = (event) => {
+        const angle = screen.orientation?.angle ?? 0;
+        const sensorAngle = angle === 90 || angle === 270 ? event.beta : event.gamma;
+        if (sensorAngle === null) return;
+        if (tiltNeutral.current === null) {
+          tiltNeutral.current = sensorAngle;
+          return;
+        }
+
+        const direction = angle === 90 || angle === 180 ? 1 : -1;
+        const amount = Math.max(-1, Math.min(1, ((sensorAngle - tiltNeutral.current) * direction) / 25));
+        onDriveControl('KeyA', Math.max(0, amount));
+        onDriveControl('KeyD', Math.max(0, -amount));
+        setWheelTurn(amount);
+      };
+      window.addEventListener('deviceorientation', handleOrientation);
+    }
+
+    return () => {
+      if (handleOrientation) window.removeEventListener('deviceorientation', handleOrientation);
+      onDriveControl('KeyA', 0);
+      onDriveControl('KeyD', 0);
+      activePointers.current.forEach((key, pointerId) => {
+        if (key === 'KeyA' || key === 'KeyD') activePointers.current.delete(pointerId);
+      });
+      steeringWheelPointer.current = null;
+      tiltNeutral.current = null;
+    };
+  }, [mobileSteeringMode, onDriveControl]);
+
+  useEffect(() => {
+    return () => {
+      new Set(activePointers.current.values()).forEach((key) => onDriveControl(key, 0));
+      activePointers.current.clear();
+    };
+  }, [onDriveControl]);
+
+  const renderPedal = (key: 'KeyW' | 'KeyS' | 'KeyC', label: string) => (
+    <button
+      key={key}
+      type="button"
+      aria-label={`${label} pedal`}
+      className="touch-driving-button mobile-analog-pedal"
+      onPointerDown={(event) => startAnalogControl(key, event)}
+      onPointerMove={(event) => {
+        if (activePointers.current.has(event.pointerId)) updateAnalogControl(key, event);
+      }}
+      onPointerUp={releasePointerControl}
+      onPointerCancel={releasePointerControl}
+      onLostPointerCapture={releasePointerControl}
+    >
+      <span className="mobile-pedal-fill" style={{ transform: `scaleY(${pedalValues[key]})` }} />
+      <span className="relative z-10">{label}</span>
+    </button>
+  );
 
   const rpmRatio = Math.max(0, Math.min(1, hud.rpm / Math.max(1, hud.maxRpm)));
   const isRedline = hud.rpm >= hud.redlineRpm;
@@ -105,7 +266,7 @@ export function PlayingHUD({
   const playerDeg = (hud.playerHeading * 180) / Math.PI;
 
   return (
-    <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 select-none">
+    <div className="game-hud fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 select-none">
       {/* TOP-CENTER HOOK / DELIVERY NOTIFICATION */}
       {(hud.nearbyHookableTrailer || hud.trailerActionNotice) && (
         <div className="fixed top-[108px] left-1/2 -translate-x-1/2 pointer-events-none z-20">
@@ -125,7 +286,7 @@ export function PlayingHUD({
       )}
 
       {/* TOP PERIMETER ROW */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="hud-top-row flex items-start justify-between gap-4">
         {/* Top-Left: Live 480m 3-Lane Minimap + Zone + Fleet + Custom Trailer Switcher */}
         <div className="pointer-events-auto flex items-start gap-3">
           <div className="w-[126px] h-[126px] rounded bg-[#0c1320]/90 border border-slate-700/90 shadow-[0_6px_20px_rgba(0,0,0,0.65)] p-1 shrink-0">
@@ -416,6 +577,18 @@ export function PlayingHUD({
           <div className="flex items-center gap-1.5">
             <button
               type="button"
+              aria-label="Mobile steering settings"
+              aria-expanded={showSteeringSettings}
+              onClick={() => setShowSteeringSettings((open) => !open)}
+              className="mobile-control-settings-trigger w-9 h-9 rounded border border-slate-700/90 bg-[#0c1320]/90 text-slate-200"
+            >
+              <svg viewBox="0 0 24 24" className="mx-auto h-5 w-5 fill-none stroke-current" strokeWidth="2">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.46 15a1.7 1.7 0 0 0-1.56-1.03H6v-2.4h.9a1.7 1.7 0 0 0 1.56-1.03 1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 12.73 5.7V5h2.4v.7a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 19.4 10.5 1.7 1.7 0 0 0 20.96 11.5h.2v2.4h-.2A1.7 1.7 0 0 0 19.4 15z" />
+              </svg>
+            </button>
+            <button
+              type="button"
               tabIndex={-1}
               data-testid="hud-camera-btn"
               aria-label={`Camera: ${CAMERA_LABELS[hud.cameraMode]}`}
@@ -627,17 +800,164 @@ export function PlayingHUD({
         </div>
       </div>
 
+      {showSteeringSettings && (
+        <div
+          className="mobile-steering-settings pointer-events-auto"
+          role="group"
+          aria-label="Steering control settings"
+          data-testid="mobile-steering-settings"
+        >
+          <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-sky-300">
+            Steering control
+          </div>
+          {([
+            { mode: 'wheel', label: 'Steering wheel', detail: 'Drag the wheel left or right.' },
+            { mode: 'arrows', label: 'Arrow buttons', detail: 'Hold the left/right arrows.' },
+            { mode: 'tilt', label: 'Tilt phone', detail: 'Lean your phone to steer.' },
+          ] as const).map(({ mode, label, detail }) => (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={mobileSteeringMode === mode}
+              onClick={() => void selectSteeringMode(mode)}
+              className={`mobile-steering-option ${
+                mobileSteeringMode === mode ? 'is-selected' : ''
+              }`}
+            >
+              <span className="font-bold">{label}</span>
+              <span className="text-[10px] text-slate-400">{detail}</span>
+            </button>
+          ))}
+          {tiltStatus && (
+            <p role="status" className="mt-2 text-[10px] leading-relaxed text-amber-200">
+              {tiltStatus}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* HIGH-VISIBILITY CONTROL LEGEND */}
-      <div className="pointer-events-none fixed bottom-28 left-1/2 -translate-x-1/2 z-20">
+      <div className="desktop-control-legend pointer-events-none fixed bottom-28 left-1/2 -translate-x-1/2 z-20">
         <div className="rounded-full border border-sky-400/40 bg-slate-950/75 px-4 py-2 text-center text-[10px] md:text-xs font-extrabold tracking-[0.16em] text-white uppercase shadow-[0_12px_28px_rgba(2,6,23,0.7)] backdrop-blur-sm">
           W/S Throttle · A/D Steer · Q/E Shift · C Clutch · Space Handbrake · T Trailer · V Camera · Tab Vehicle · Esc Pause
         </div>
       </div>
 
+      <div className="touch-driving-controls fixed inset-x-0 bottom-2 z-30 items-end justify-between px-3 pointer-events-none">
+        <div className="flex gap-2 pointer-events-auto">
+          {mobileSteeringMode === 'wheel' && (
+            <button
+              type="button"
+              aria-label="Steering wheel, drag to steer"
+              className="touch-driving-button mobile-steering-wheel"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                steeringWheelPointer.current = event.pointerId;
+                updateWheelSteering(event);
+              }}
+              onPointerMove={updateWheelSteering}
+              onPointerUp={releaseWheelSteering}
+              onPointerCancel={releaseWheelSteering}
+              onLostPointerCapture={releaseWheelSteering}
+            >
+              <svg
+                viewBox="0 0 100 100"
+                className="mobile-steering-wheel-art"
+                style={{ transform: `rotate(${-wheelTurn * 135}deg)` }}
+                aria-hidden="true"
+              >
+                <circle cx="50" cy="50" r="39" fill="none" stroke="currentColor" strokeWidth="8" />
+                <circle cx="50" cy="50" r="8" fill="currentColor" />
+                <path d="M50 50 50 14M50 50 20 66M50 50 80 66" fill="none" stroke="currentColor" strokeWidth="7" strokeLinecap="round" />
+              </svg>
+              <span className="mobile-steering-wheel-caption">STEER</span>
+            </button>
+          )}
+          {mobileSteeringMode === 'arrows' && (
+            ([
+              { code: 'KeyA', label: 'LEFT', icon: '◀' },
+              { code: 'KeyD', label: 'RIGHT', icon: '▶' },
+            ] as const).map(({ code, label, icon }) => (
+              <button
+                key={code}
+                type="button"
+                aria-label={`Steer ${label.toLowerCase()}`}
+                className="touch-driving-button mobile-steering-button"
+                onPointerDown={(event) => startSteering(code, event)}
+                onPointerUp={releasePointerControl}
+                onPointerCancel={releasePointerControl}
+                onLostPointerCapture={releasePointerControl}
+              >
+                {icon}
+              </button>
+            ))
+          )}
+          {mobileSteeringMode === 'tilt' && (
+            <div
+              className="mobile-tilt-indicator"
+              aria-label="Tilt steering enabled"
+              style={{ transform: `rotate(${wheelTurn * 10}deg)` }}
+            >
+              TILT STEERING
+            </div>
+          )}
+        </div>
+        <div className="mobile-pedals pointer-events-auto">
+          {renderPedal('KeyC', 'CLUTCH')}
+          {renderPedal('KeyS', 'BRAKE')}
+          {renderPedal('KeyW', 'GAS')}
+        </div>
+      </div>
+
+      <div className="mobile-h-pattern pointer-events-auto">
+        <span className="mobile-h-pattern-label">GEAR</span>
+        <div className="mobile-h-pattern-track">
+          <span className="mobile-h-pattern-line mobile-h-pattern-horizontal" />
+          <span className="mobile-h-pattern-line mobile-h-pattern-vertical mobile-h-pattern-left" />
+          <span className="mobile-h-pattern-line mobile-h-pattern-vertical mobile-h-pattern-center" />
+          <span className="mobile-h-pattern-line mobile-h-pattern-vertical mobile-h-pattern-right" />
+          {[
+            { gear: 1, position: 'mobile-gear-top-left' },
+            { gear: 2, position: 'mobile-gear-bottom-left' },
+            { gear: 3, position: 'mobile-gear-top-center' },
+            { gear: 4, position: 'mobile-gear-bottom-center' },
+            { gear: 5, position: 'mobile-gear-top-right' },
+            { gear: 6, position: 'mobile-gear-bottom-right' },
+          ].map(({ gear, position }) => (
+            <button
+              key={gear}
+              type="button"
+              aria-label={`Gear ${gear}`}
+              className={`mobile-h-pattern-gear ${position} ${hud.gear === gear ? 'is-selected' : ''}`}
+              onClick={() => onSetGear(gear as GearValue)}
+            >
+              {gear}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-label="Neutral gear"
+            className={`mobile-h-pattern-neutral ${hud.gear === 'N' ? 'is-selected' : ''}`}
+            onClick={() => onSetGear('N')}
+          >
+            N
+          </button>
+        </div>
+        <button
+          type="button"
+          aria-label="Reverse gear"
+          className={`mobile-h-pattern-reverse ${hud.gear === 'R' ? 'is-selected' : ''}`}
+          onClick={() => onSetGear('R')}
+        >
+          R
+        </button>
+      </div>
+
       {/* BOTTOM PERIMETER ROW */}
-      <div className="flex items-end justify-between gap-4">
+      <div className="game-hud-bottom flex items-end justify-between gap-4">
         {/* Bottom-Left: Speedometer, RPM & Clutch */}
-        <div className="pointer-events-auto bg-[#0c1320]/90 border border-slate-700/90 rounded-lg px-4 py-3 shadow-[0_8px_26px_rgba(0,0,0,0.7)] flex items-center gap-4">
+        <div className="hud-speed-panel pointer-events-auto bg-[#0c1320]/90 border border-slate-700/90 rounded-lg px-4 py-3 shadow-[0_8px_26px_rgba(0,0,0,0.7)] flex items-center gap-4">
           <div className="relative w-[112px] h-[86px] flex items-center justify-center">
             <svg viewBox="0 0 120 92" className="w-full h-full">
               <path
@@ -740,7 +1060,7 @@ export function PlayingHUD({
 
         {/* Bottom-Center: Parking & Freight Bay Proximity */}
         {showParkingPanel && parking.nearestBay && (
-          <div className="pointer-events-none bg-[#0c1320]/92 border border-sky-500/60 rounded-lg px-4 py-2.5 shadow-xl flex flex-col items-center gap-1 min-w-[260px]">
+          <div className="hud-parking-panel pointer-events-none bg-[#0c1320]/92 border border-sky-500/60 rounded-lg px-4 py-2.5 shadow-xl flex flex-col items-center gap-1 min-w-[260px]">
             <div className="flex items-center justify-between w-full gap-4">
               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-300">
                 {parking.nearestBay.name}
@@ -780,7 +1100,7 @@ export function PlayingHUD({
         )}
 
         {/* Bottom-Right: Manual Gearbox */}
-        <div className="pointer-events-auto bg-[#0c1320]/90 border border-slate-700/90 rounded-lg px-3.5 py-2.5 shadow-[0_8px_26px_rgba(0,0,0,0.7)] flex items-center gap-3">
+        <div className="desktop-gear-selector pointer-events-auto bg-[#0c1320]/90 border border-slate-700/90 rounded-lg px-3.5 py-2.5 shadow-[0_8px_26px_rgba(0,0,0,0.7)] flex items-center gap-3">
           <div className="flex flex-col items-center justify-center min-w-[46px]">
             <span className="text-[9px] uppercase tracking-[0.2em] text-slate-400 font-bold">GEAR</span>
             <span

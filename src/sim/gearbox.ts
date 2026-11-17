@@ -113,14 +113,15 @@ export function stepGearboxAndDrivetrain(
   spec: VehicleSpec,
   forwardSpeed: number,
   throttle: number,
-  clutchPressed: boolean,
+  clutchInput: number,
   dt: number,
 ): DrivetrainStepResult {
   const ratio = spec.gearRatios[gb.gear];
   const shiftFlashTimer = Math.max(0, gb.shiftFlashTimer - dt);
+  const clutchPressed = clutchInput > 0;
 
   // Determine effective clutch disengagement (0 = fully locked, 1 = fully disengaged)
-  let effectiveClutch = clutchPressed ? 1 : 0;
+  let effectiveClutch = Math.max(0, Math.min(1, clutchInput));
 
   if (!clutchPressed && gb.autoClutch) {
     // Auto-clutch smoothly slips at launch speed in 1st/R or during brief shift flash

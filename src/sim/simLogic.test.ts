@@ -55,16 +55,20 @@ test('clutch disengagement lets engine rev freely without applying drive force',
   let gb = createInitialGearbox(spec, false);
   gb = setDirectGear(gb, 1, 0, spec).next;
 
-  const stepWithClutch = stepGearboxAndDrivetrain(gb, spec, 0, 1.0, true, 0.04);
+  const stepWithClutch = stepGearboxAndDrivetrain(gb, spec, 0, 1.0, 1, 0.04);
   assert.equal(stepWithClutch.driveForceN, 0);
   assert.ok(stepWithClutch.gearbox.rpm > spec.idleRpm);
+
+  const stepWithPartialClutch = stepGearboxAndDrivetrain(gb, spec, 0, 1.0, 0.4, 0.04);
+  assert.equal(stepWithPartialClutch.gearbox.clutch, 0.4);
+  assert.ok(stepWithPartialClutch.driveForceN > 0);
 
   const stepEngaged = stepGearboxAndDrivetrain(
     { ...gb, rpm: 1400 },
     spec,
     2.5,
     1.0,
-    false,
+    0,
     0.04,
   );
   assert.ok(stepEngaged.driveForceN > 5000);
@@ -81,7 +85,7 @@ test('8x4 tractor accelerates in 1st gear, steers left, and brakes to a stop', (
     stepVehiclePhysics(
       state,
       spec,
-      { throttle: 1, brake: 0, steer: 0, clutch: false, handbrake: false },
+      { throttle: 1, brake: 0, steer: 0, clutch: 0, handbrake: false },
       0.04,
       [],
       [],
@@ -96,7 +100,7 @@ test('8x4 tractor accelerates in 1st gear, steers left, and brakes to a stop', (
     stepVehiclePhysics(
       state,
       spec,
-      { throttle: 0.7, brake: 0, steer: 1, clutch: false, handbrake: false },
+      { throttle: 0.7, brake: 0, steer: 1, clutch: 0, handbrake: false },
       0.04,
       [],
       [],
@@ -109,7 +113,7 @@ test('8x4 tractor accelerates in 1st gear, steers left, and brakes to a stop', (
     stepVehiclePhysics(
       state,
       spec,
-      { throttle: 0, brake: 1, steer: 0, clutch: false, handbrake: false },
+      { throttle: 0, brake: 1, steer: 0, clutch: 0, handbrake: false },
       0.04,
       [],
       [],
@@ -189,7 +193,7 @@ test('8x4 tractor spawns with coupled trailer that articulates on turns, decoupl
     stepVehiclePhysics(
       state,
       spec,
-      { throttle: 1, brake: 0, steer: 0.75, clutch: false, handbrake: false },
+      { throttle: 1, brake: 0, steer: 0.75, clutch: 0, handbrake: false },
       0.04,
       [],
       [],
@@ -210,7 +214,7 @@ test('8x4 tractor spawns with coupled trailer that articulates on turns, decoupl
     stepVehiclePhysics(
       state,
       spec,
-      { throttle: 1, brake: 0, steer: 0, clutch: false, handbrake: false },
+      { throttle: 1, brake: 0, steer: 0, clutch: 0, handbrake: false },
       0.04,
       [],
       [],

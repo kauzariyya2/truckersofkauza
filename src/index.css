@@ -65,3 +65,407 @@ body::after {
 .game-shell > * {
   z-index: 2;
 }
+
+.touch-driving-controls {
+  display: none;
+}
+
+.touch-driving-button {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mobile-control-settings-trigger {
+  display: none;
+}
+
+.mobile-steering-settings {
+  display: none;
+}
+
+.mobile-h-pattern {
+  display: none;
+}
+
+.mobile-portrait-overlay {
+  display: none;
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  .mobile-portrait-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(2, 6, 23, 0.96);
+    text-align: center;
+  }
+
+  .mobile-portrait-card {
+    display: flex;
+    max-width: 360px;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape),
+  (max-width: 900px) and (max-height: 540px) and (orientation: landscape) {
+  .touch-driving-controls {
+    display: flex;
+    bottom: 8px;
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .mobile-h-pattern {
+    display: block;
+  }
+
+  .desktop-control-legend,
+  .desktop-gear-selector,
+  .hud-parking-panel {
+    display: none;
+  }
+
+  .game-hud {
+    padding: 8px;
+  }
+
+  .game-hud-bottom {
+    display: contents;
+  }
+
+  .hud-speed-panel {
+    position: fixed;
+    bottom: 8px;
+    left: 50%;
+    z-index: 25;
+    transform: translateX(-50%) scale(0.68);
+    transform-origin: bottom center;
+  }
+
+  .mobile-steering-button {
+    display: flex;
+    width: 64px;
+    height: 64px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(148, 163, 184, 0.8);
+    border-radius: 14px;
+    background: rgba(2, 6, 23, 0.78);
+    color: white;
+    font-size: 30px;
+    font-weight: 900;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  }
+
+  .mobile-steering-wheel {
+    display: flex;
+    width: 136px;
+    height: 136px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(203, 213, 225, 0.72);
+    border-radius: 50%;
+    background: rgba(2, 6, 23, 0.48);
+    color: rgba(226, 232, 240, 0.9);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42), inset 0 0 14px rgba(148, 163, 184, 0.12);
+  }
+
+  .mobile-steering-wheel-art {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    transition: transform 50ms linear;
+  }
+
+  .mobile-steering-wheel-caption {
+    position: absolute;
+    bottom: 38px;
+    color: #e2e8f0;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    pointer-events: none;
+  }
+
+  .mobile-tilt-indicator {
+    display: flex;
+    min-width: 136px;
+    height: 48px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(125, 211, 252, 0.65);
+    border-radius: 9999px;
+    background: rgba(2, 6, 23, 0.76);
+    color: #bae6fd;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+  }
+
+  .mobile-control-settings-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-steering-settings {
+    position: fixed;
+    top: 54px;
+    right: 10px;
+    z-index: 35;
+    display: flex;
+    width: min(250px, 42vw);
+    flex-direction: column;
+    padding: 12px;
+    border: 1px solid rgba(125, 211, 252, 0.55);
+    border-radius: 12px;
+    background: rgba(2, 6, 23, 0.96);
+    color: #e2e8f0;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  }
+
+  .mobile-steering-option {
+    display: flex;
+    min-height: 42px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
+    padding: 5px 8px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #e2e8f0;
+    text-align: left;
+  }
+
+  .mobile-steering-option.is-selected {
+    border-color: rgba(56, 189, 248, 0.72);
+    background: rgba(3, 105, 161, 0.45);
+  }
+
+  .mobile-pedals {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .mobile-analog-pedal {
+    position: relative;
+    display: flex;
+    width: 46px;
+    height: min(124px, 34vh);
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.8);
+    border-radius: 12px;
+    background: rgba(2, 6, 23, 0.78);
+    color: white;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    writing-mode: vertical-rl;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  }
+
+  .mobile-pedal-fill {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 100%;
+    transform: scaleY(0);
+    transform-origin: bottom;
+    background: linear-gradient(0deg, rgba(14, 165, 233, 0.85), rgba(56, 189, 248, 0.24));
+    pointer-events: none;
+  }
+
+  .mobile-h-pattern {
+    position: fixed;
+    top: 43%;
+    right: 10px;
+    z-index: 25;
+    width: 184px;
+    padding: 7px 10px;
+    transform: translateY(-50%);
+    border: 1px solid rgba(148, 163, 184, 0.55);
+    border-radius: 14px;
+    background: rgba(2, 6, 23, 0.74);
+    color: white;
+    text-align: center;
+    touch-action: manipulation;
+  }
+
+  .mobile-h-pattern-label {
+    display: block;
+    color: #94a3b8;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+  }
+
+  .mobile-h-pattern-track {
+    position: relative;
+    height: 94px;
+    margin: 2px 6px 0;
+  }
+
+  .mobile-h-pattern-line {
+    position: absolute;
+    z-index: 0;
+    display: block;
+    border-radius: 2px;
+    background: rgba(203, 213, 225, 0.72);
+    pointer-events: none;
+  }
+
+  .mobile-h-pattern-horizontal {
+    top: 50%;
+    right: 10%;
+    left: 10%;
+    height: 2px;
+  }
+
+  .mobile-h-pattern-vertical {
+    top: 12%;
+    bottom: 12%;
+    width: 2px;
+  }
+
+  .mobile-h-pattern-left {
+    left: 16.66%;
+  }
+
+  .mobile-h-pattern-center {
+    left: 50%;
+  }
+
+  .mobile-h-pattern-right {
+    left: 83.33%;
+  }
+
+  .mobile-h-pattern-gear,
+  .mobile-h-pattern-neutral {
+    position: absolute;
+    z-index: 1;
+    display: flex;
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    transform: translate(-50%, -50%);
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.9);
+    color: #e2e8f0;
+    font-size: 17px;
+    font-weight: 700;
+    touch-action: manipulation;
+  }
+
+  .mobile-gear-top-left {
+    top: 16%;
+    left: 16.66%;
+  }
+
+  .mobile-gear-bottom-left {
+    top: 84%;
+    left: 16.66%;
+  }
+
+  .mobile-gear-top-center {
+    top: 16%;
+    left: 50%;
+  }
+
+  .mobile-gear-bottom-center {
+    top: 84%;
+    left: 50%;
+  }
+
+  .mobile-gear-top-right {
+    top: 16%;
+    left: 83.33%;
+  }
+
+  .mobile-gear-bottom-right {
+    top: 84%;
+    left: 83.33%;
+  }
+
+  .mobile-h-pattern-neutral {
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    border-color: rgba(203, 213, 225, 0.82);
+    background: rgba(15, 23, 42, 0.96);
+    font-size: 19px;
+  }
+
+  .mobile-h-pattern-gear.is-selected,
+  .mobile-h-pattern-neutral.is-selected {
+    border-color: #7dd3fc;
+    background: #0284c7;
+    color: white;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.55);
+  }
+
+  .mobile-h-pattern-reverse {
+    display: block;
+    margin: 1px 3px 0 auto;
+    min-width: 38px;
+    height: 26px;
+    border: 1px solid rgba(251, 191, 36, 0.65);
+    border-radius: 7px;
+    background: rgba(120, 53, 15, 0.55);
+    color: #fcd34d;
+    font-weight: 800;
+    touch-action: manipulation;
+  }
+
+  .mobile-h-pattern-reverse.is-selected {
+    background: #d97706;
+    color: #0f172a;
+  }
+
+  .title-screen {
+    padding: 8px;
+  }
+
+  .title-panel {
+    width: min(390px, 58vw);
+    max-width: 390px;
+    gap: 10px;
+    margin-top: 0;
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .title-panel > div:first-child svg {
+    max-height: 100px;
+  }
+
+  .developer-credit {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+  .touch-driving-controls {
+    display: flex;
+  }
+
+  .desktop-control-legend {
+    display: none;
+  }
+}

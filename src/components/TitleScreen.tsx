@@ -9,9 +9,9 @@ interface TitleScreenProps {
 
 export function TitleScreen({ selectedVehicle, onSelectVehicle, onStart }: TitleScreenProps) {
   return (
-    <div className="fixed inset-0 z-20 pointer-events-none flex flex-col justify-between p-6 md:p-12 select-none">
+    <div className="title-screen fixed inset-0 z-20 pointer-events-none flex flex-col justify-between p-6 md:p-12 select-none">
       {/* Left 38% Negative-Space Title Lockup & Controls */}
-      <div className="max-w-md pointer-events-auto flex flex-col gap-6 mt-4 md:mt-10 p-4 md:p-5 rounded-2xl border border-sky-400/20 bg-slate-950/25 backdrop-blur-md shadow-[0_25px_80px_rgba(2,6,23,0.72)]">
+      <div className="title-panel max-w-md pointer-events-auto flex flex-col gap-6 mt-4 md:mt-10 p-4 md:p-5 rounded-2xl border border-sky-400/20 bg-slate-950/25 backdrop-blur-md shadow-[0_25px_80px_rgba(2,6,23,0.72)]">
         {/* Bespoke Inline SVG Emblem & Title Lockup */}
         <div className="flex flex-col gap-2">
           <svg

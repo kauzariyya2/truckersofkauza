@@ -2,6 +2,10 @@ export type VehicleId = 'auman_8x4' | 'sport_coupe' | 'city_bus' | 'box_truck';
 
 export type GearValue = 'R' | 'N' | 1 | 2 | 3 | 4 | 5 | 6;
 
+export type DriveControlKey = 'KeyW' | 'KeyS' | 'KeyA' | 'KeyD' | 'KeyC';
+
+export type MobileSteeringMode = 'wheel' | 'arrows' | 'tilt';
+
 export type GamePhase = 'title' | 'playing' | 'paused' | 'gameover';
 
 export type CameraMode = 'chase' | 'cab' | 'top' | 'orbit' | 'custom';
@@ -111,7 +115,7 @@ export interface ControlInputs {
   throttle: number; // 0..1
   brake: number; // 0..1
   steer: number; // -1 (right) .. +1 (left)
-  clutch: boolean;
+  clutch: number; // 0..1
   handbrake: boolean;
 }
 
