@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createInitialGearbox,
+  setAutomaticSelector,
   setDirectGear,
   shiftGearDown,
   shiftGearUp,
@@ -48,6 +49,35 @@ test('manual gearbox shifts sequentially across R, N, 1..6 and guards Reverse at
   const blockedRev = shiftGearDown(gb, 6.0, spec);
   assert.equal(blockedRev.shifted, false);
   assert.equal(blockedRev.next.gear, 'N');
+});
+
+test('automatic transmission selects D/R/N and shifts gears automatically', () => {
+  const spec = VEHICLE_SPECS.auman_8x4;
+  let gearbox = { ...createInitialGearbox(spec, false), automaticTransmission: true };
+
+  gearbox = setAutomaticSelector(gearbox, 'D', 0, spec).next;
+  assert.equal(gearbox.gear, 1);
+  assert.equal(
+    stepGearboxAndDrivetrain(
+      { ...gearbox, rpm: spec.redlineRpm, shiftFlashTimer: 0 },
+      spec,
+      8,
+      1,
+      0,
+      0.04,
+    )
+      .gearbox.gear,
+    2,
+  );
+
+  gearbox = { ...gearbox, gear: 2, rpm: spec.idleRpm, shiftFlashTimer: 0 };
+  assert.equal(
+    stepGearboxAndDrivetrain(gearbox, spec, 5, 0.5, 0, 0.04).gearbox.gear,
+    1,
+  );
+  assert.equal(setAutomaticSelector(gearbox, 'R', 0, spec).next.gear, 'R');
+  assert.equal(setAutomaticSelector(gearbox, 'R', 3, spec).shifted, false);
+  assert.equal(setAutomaticSelector(gearbox, 'N', 3, spec).next.gear, 'N');
 });
 
 test('clutch disengagement lets engine rev freely without applying drive force', () => {

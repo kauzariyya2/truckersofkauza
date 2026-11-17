@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type {
+  AutomaticGearSelector,
   CameraMode,
   CustomCameraSettings,
   DriveControlKey,
@@ -20,11 +21,13 @@ interface PlayingHUDProps {
   onCustomCameraChange: (next: CustomCameraSettings) => void;
   onSetCameraMode: (mode: CameraMode) => void;
   onSetGear: (gear: GearValue) => boolean;
+  onSetAutomaticSelector: (selector: AutomaticGearSelector) => void;
   onDriveControl: (key: DriveControlKey, amount: number) => void;
   mobileSteeringMode: MobileSteeringMode;
   onMobileSteeringModeChange: (mode: MobileSteeringMode) => void;
   onToggleHandbrake: () => void;
   onToggleAutoClutch: () => void;
+  onToggleAutomaticTransmission: () => void;
   onToggleLights: () => void;
   onToggleTrailer: () => void;
   onCustomizeTrailer: (variant: TrailerVariant, livery: TrailerLivery) => void;
@@ -72,11 +75,13 @@ export function PlayingHUD({
   onCustomCameraChange,
   onSetCameraMode,
   onSetGear,
+  onSetAutomaticSelector,
   onDriveControl,
   mobileSteeringMode,
   onMobileSteeringModeChange,
   onToggleHandbrake,
   onToggleAutoClutch,
+  onToggleAutomaticTransmission,
   onToggleLights,
   onToggleTrailer,
   onCustomizeTrailer,
@@ -92,8 +97,10 @@ export function PlayingHUD({
   const [pickedVariant, setPickedVariant] = useState<TrailerVariant>(hud.activeTrailerVariant);
   const [pickedLivery, setPickedLivery] = useState<TrailerLivery>(hud.activeTrailerLivery);
   const [showSteeringSettings, setShowSteeringSettings] = useState(false);
+  const [showCustomViewTuner, setShowCustomViewTuner] = useState(false);
   const [tiltStatus, setTiltStatus] = useState('');
   const [wheelTurn, setWheelTurn] = useState(0);
+  const previousSpeedKmh = useRef(hud.speedKmh);
   const [pedalValues, setPedalValues] = useState<Record<DriveControlKey, number>>({
     KeyW: 0,
     KeyS: 0,
@@ -106,6 +113,21 @@ export function PlayingHUD({
   const activePointers = useRef(new Map<number, DriveControlKey>());
   const steeringWheelPointer = useRef<number | null>(null);
   const tiltNeutral = useRef<number | null>(null);
+
+  useEffect(() => {
+    setShowCustomViewTuner(hud.cameraMode === 'custom');
+  }, [hud.cameraMode]);
+
+  useEffect(() => {
+    if (
+      hud.cameraMode === 'custom' &&
+      previousSpeedKmh.current === 0 &&
+      hud.speedKmh > 0
+    ) {
+      setShowCustomViewTuner(false);
+    }
+    previousSpeedKmh.current = hud.speedKmh;
+  }, [hud.cameraMode, hud.speedKmh]);
 
   const updateAnalogControl = (key: DriveControlKey, event: React.PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -607,9 +629,18 @@ export function PlayingHUD({
               tabIndex={-1}
               data-testid="hud-custom-view-btn"
               aria-label="Custom View Camera"
+              aria-expanded={hud.cameraMode === 'custom' && showCustomViewTuner}
               onClick={(e) => {
                 e.currentTarget.blur();
-                onSetCameraMode(hud.cameraMode === 'custom' ? 'chase' : 'custom');
+                if (hud.cameraMode !== 'custom') {
+                  setShowCustomViewTuner(true);
+                  onSetCameraMode('custom');
+                } else if (showCustomViewTuner) {
+                  setShowCustomViewTuner(false);
+                  onSetCameraMode('chase');
+                } else {
+                  setShowCustomViewTuner(true);
+                }
               }}
               className={`h-9 px-2.5 rounded border text-[11px] font-bold tracking-wider uppercase cursor-pointer ${
                 hud.cameraMode === 'custom'
@@ -714,7 +745,7 @@ export function PlayingHUD({
           </div>
 
           {/* Custom View Camera Controls (appears only when Custom View is active!) */}
-          {hud.cameraMode === 'custom' && (
+          {hud.cameraMode === 'custom' && showCustomViewTuner && (
             <div
               data-testid="custom-view-panel"
               className="w-64 bg-[#0c1320]/92 border border-sky-500/60 rounded p-2.5 shadow-xl flex flex-col gap-2 text-xs text-slate-200"
@@ -907,7 +938,15 @@ export function PlayingHUD({
         </div>
       </div>
 
-      <ManualGearShifter gear={hud.gear} onSetGear={onSetGear} className="mobile-h-pattern" />
+      {hud.automaticTransmission ? (
+        <AutomaticGearSelector
+          selected={hud.gear === 'R' || hud.gear === 'N' ? hud.gear : 'D'}
+          onSelect={onSetAutomaticSelector}
+          className="mobile-h-pattern"
+        />
+      ) : (
+        <ManualGearShifter gear={hud.gear} onSetGear={onSetGear} className="mobile-h-pattern" />
+      )}
 
       {/* BOTTOM PERIMETER ROW */}
       <div className="game-hud-bottom flex items-end justify-between gap-4">
@@ -1003,6 +1042,22 @@ export function PlayingHUD({
               >
                 {hud.autoClutch ? 'AUTO-CLUTCH' : 'FULL CLUTCH'}
               </button>
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-pressed={hud.automaticTransmission}
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                  onToggleAutomaticTransmission();
+                }}
+                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border cursor-pointer ${
+                  hud.automaticTransmission
+                    ? 'bg-sky-950/90 border-sky-500 text-sky-300'
+                    : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:border-sky-400'
+                }`}
+              >
+                {hud.automaticTransmission ? 'AUTO GEAR' : 'MANUAL GEAR'}
+              </button>
             </div>
 
             {hud.stalled && (
@@ -1068,12 +1123,52 @@ export function PlayingHUD({
                     : 'text-[#38bdf8]'
               }`}
             >
-              {hud.gear}
+              {hud.automaticTransmission && typeof hud.gear === 'number' ? 'D' : hud.gear}
             </span>
           </div>
 
-          <ManualGearShifter gear={hud.gear} onSetGear={onSetGear} className="desktop-h-pattern" />
+          {hud.automaticTransmission ? (
+            <AutomaticGearSelector
+              selected={hud.gear === 'R' || hud.gear === 'N' ? hud.gear : 'D'}
+              onSelect={onSetAutomaticSelector}
+              className="desktop-h-pattern"
+            />
+          ) : (
+            <ManualGearShifter gear={hud.gear} onSetGear={onSetGear} className="desktop-h-pattern" />
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AutomaticGearSelector({
+  selected,
+  onSelect,
+  className,
+}: {
+  selected: AutomaticGearSelector;
+  onSelect: (selector: AutomaticGearSelector) => void;
+  className: string;
+}) {
+  return (
+    <div className={`automatic-gear-selector ${className}`} role="group" aria-label="Automatic transmission selector">
+      <div className="gear-shifter-heading">
+        <span>AUTO</span>
+        <span>{selected}</span>
+      </div>
+      <div className="automatic-gear-options">
+        {(['D', 'R', 'N'] as const).map((selector) => (
+          <button
+            type="button"
+            key={selector}
+            aria-pressed={selected === selector}
+            onClick={() => onSelect(selector)}
+            className={`automatic-gear-option ${selected === selector ? 'is-selected' : ''}`}
+          >
+            {selector}
+          </button>
+        ))}
       </div>
     </div>
   );

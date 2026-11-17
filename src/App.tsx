@@ -4,6 +4,7 @@ import { PauseModal } from './components/PauseModal';
 import { PlayingHUD } from './components/PlayingHUD';
 import { TitleScreen } from './components/TitleScreen';
 import type {
+  AutomaticGearSelector,
   CustomCameraSettings,
   DriveControlKey,
   GamePhase,
@@ -23,6 +24,7 @@ const INITIAL_HUD: HudSnapshot = {
   clutch: 0,
   stalled: false,
   autoClutch: true,
+  automaticTransmission: false,
   handbrake: false,
   braking: false,
   headlightsOn: true,
@@ -164,11 +166,17 @@ export default function App() {
           onCustomCameraChange={(cfg) => gameRef.current?.setCustomCamera(cfg)}
           onSetCameraMode={(m) => gameRef.current?.setCameraMode(m)}
           onSetGear={(g) => gameRef.current?.setGear(g) ?? false}
+          onSetAutomaticSelector={(selector) =>
+            gameRef.current?.setAutomaticSelector(selector)
+          }
           onDriveControl={handleDriveControl}
           mobileSteeringMode={mobileSteeringMode}
           onMobileSteeringModeChange={setMobileSteeringMode}
           onToggleHandbrake={() => gameRef.current?.toggleHandbrake()}
           onToggleAutoClutch={() => gameRef.current?.toggleAutoClutch()}
+          onToggleAutomaticTransmission={() =>
+            gameRef.current?.toggleAutomaticTransmission()
+          }
           onToggleLights={() => gameRef.current?.toggleLights()}
           onToggleTrailer={() => gameRef.current?.toggleTrailer()}
           onCustomizeTrailer={(variant, livery) => gameRef.current?.customizeTrailer(variant, livery)}

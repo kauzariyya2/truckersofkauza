@@ -94,6 +94,46 @@ body::after {
   -webkit-user-select: none;
 }
 
+.automatic-gear-selector {
+  display: flex;
+  min-height: 76px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.74);
+  color: white;
+  text-align: center;
+}
+
+.automatic-gear-options {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.automatic-gear-option {
+  width: 40px;
+  height: 36px;
+  border: 1px solid rgba(148, 163, 184, 0.48);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.automatic-gear-option.is-selected {
+  border-color: #7dd3fc;
+  background: #0284c7;
+  color: white;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.45);
+}
+
 .desktop-h-pattern {
   display: flex;
   width: 184px;

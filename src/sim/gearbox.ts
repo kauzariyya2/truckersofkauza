@@ -1,4 +1,4 @@
-import type { GearValue, GearboxState, VehicleSpec } from './types';
+import type { AutomaticGearSelector, GearValue, GearboxState, VehicleSpec } from './types';
 
 export const GEAR_SEQUENCE: GearValue[] = ['R', 'N', 1, 2, 3, 4, 5, 6];
 
@@ -9,9 +9,21 @@ export function createInitialGearbox(spec: VehicleSpec, autoClutch = true): Gear
     clutch: 0,
     stalled: false,
     autoClutch,
+    automaticTransmission: false,
     shiftFlashTimer: 0,
     lastShiftQuality: null,
   };
+}
+
+export function setAutomaticSelector(
+  gb: GearboxState,
+  selector: AutomaticGearSelector,
+  forwardSpeed: number,
+  spec: VehicleSpec,
+): { next: GearboxState; shifted: boolean } {
+  const target: GearValue =
+    selector === 'D' ? (typeof gb.gear === 'number' ? gb.gear : 1) : selector;
+  return setDirectGear(gb, target, forwardSpeed, spec);
 }
 
 export function getTorqueMultiplier(rpm: number, spec: VehicleSpec): number {
@@ -116,18 +128,36 @@ export function stepGearboxAndDrivetrain(
   clutchInput: number,
   dt: number,
 ): DrivetrainStepResult {
-  const ratio = spec.gearRatios[gb.gear];
-  const shiftFlashTimer = Math.max(0, gb.shiftFlashTimer - dt);
+  let nextGearbox = gb;
+  if (gb.automaticTransmission && typeof gb.gear === 'number') {
+    const shiftCooldownFinished = gb.shiftFlashTimer <= 0;
+    const shouldUpshift =
+      shiftCooldownFinished && gb.gear < 6 && gb.rpm >= spec.redlineRpm * 0.82;
+    const shouldDownshift =
+      shiftCooldownFinished &&
+      gb.gear > 1 &&
+      gb.rpm < spec.idleRpm * 1.3 &&
+      Math.abs(forwardSpeed) > 1.5;
+    if (shouldUpshift) {
+      nextGearbox = shiftGearUp(gb, forwardSpeed, spec).next;
+    } else if (shouldDownshift) {
+      nextGearbox = shiftGearDown(gb, forwardSpeed, spec).next;
+    }
+  }
+
+  const ratio = spec.gearRatios[nextGearbox.gear];
+  const shiftFlashTimer = Math.max(0, nextGearbox.shiftFlashTimer - dt);
   const clutchPressed = clutchInput > 0;
 
   // Determine effective clutch disengagement (0 = fully locked, 1 = fully disengaged)
   let effectiveClutch = Math.max(0, Math.min(1, clutchInput));
 
-  if (!clutchPressed && gb.autoClutch) {
+  const automaticClutch = nextGearbox.autoClutch || nextGearbox.automaticTransmission;
+  if (!clutchPressed && automaticClutch) {
     // Auto-clutch smoothly slips at launch speed in 1st/R or during brief shift flash
     if (shiftFlashTimer > 0.08) {
       effectiveClutch = 0.88;
-    } else if (gb.gear === 1 || gb.gear === 'R') {
+    } else if (nextGearbox.gear === 1 || nextGearbox.gear === 'R') {
       const launchSlipSpeed = 2.8;
       if (Math.abs(forwardSpeed) < launchSlipSpeed) {
         const slip = 1 - Math.abs(forwardSpeed) / launchSlipSpeed;
@@ -141,11 +171,11 @@ export function stepGearboxAndDrivetrain(
   const wheelRpm = (wheelRadPerSec * 60) / (2 * Math.PI);
   const coupledEngineRpm = ratio !== 0 ? wheelRpm * ratio * spec.finalDrive : spec.idleRpm;
 
-  let rpm = gb.rpm;
-  let stalled = gb.stalled;
+  let rpm = nextGearbox.rpm;
+  let stalled = nextGearbox.stalled;
 
   // Auto-recover stall if user presses clutch or shifts to Neutral with throttle
-  if (stalled && (clutchPressed || (gb.gear === 'N' && throttle > 0.1))) {
+  if (stalled && (clutchPressed || (nextGearbox.gear === 'N' && throttle > 0.1))) {
     stalled = false;
     rpm = spec.idleRpm;
   }
@@ -169,7 +199,7 @@ export function stepGearboxAndDrivetrain(
   const revCeiling = spec.redlineRpm + 180;
   const freeTargetRpm = spec.idleRpm + throttle * (revCeiling - spec.idleRpm);
 
-  if (gb.gear === 'N' || ratio === 0) {
+  if (nextGearbox.gear === 'N' || ratio === 0) {
     const rate = throttle > 0.05 ? 6.5 : 3.2;
     rpm += (freeTargetRpm - rpm) * Math.min(1, rate * dt);
   } else {
@@ -193,10 +223,14 @@ export function stepGearboxAndDrivetrain(
 
   // Stall check: in high gear (2..6) at very low speed with clutch engaged and low RPM
   if (
-    gb.gear !== 'N' &&
+    nextGearbox.gear !== 'N' &&
     effectiveClutch < 0.25 &&
-    ((!gb.autoClutch && rpm < spec.idleRpm * 0.58) ||
-      (gb.autoClutch && typeof gb.gear === 'number' && gb.gear >= 3 && Math.abs(forwardSpeed) < 1.0 && throttle < 0.15))
+    ((!automaticClutch && rpm < spec.idleRpm * 0.58) ||
+      (automaticClutch &&
+        typeof nextGearbox.gear === 'number' &&
+        nextGearbox.gear >= 3 &&
+        Math.abs(forwardSpeed) < 1.0 &&
+        throttle < 0.15))
   ) {
     stalled = true;
   }
@@ -207,7 +241,7 @@ export function stepGearboxAndDrivetrain(
   let driveForceN = 0;
   let engineBrakeForceN = 0;
 
-  if (gb.gear !== 'N' && ratio !== 0 && !stalled) {
+  if (nextGearbox.gear !== 'N' && ratio !== 0 && !stalled) {
     const engagement = Math.max(0, 1 - effectiveClutch);
     const revLimiterCut = rpm >= spec.redlineRpm + 140 ? 0.15 : 1.0;
     const torqueMult = getTorqueMultiplier(Math.max(rpm, spec.idleRpm), spec);
@@ -228,7 +262,7 @@ export function stepGearboxAndDrivetrain(
 
   return {
     gearbox: {
-      ...gb,
+      ...nextGearbox,
       rpm,
       clutch: effectiveClutch,
       stalled,

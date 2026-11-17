@@ -1,6 +1,7 @@
 export type VehicleId = 'auman_8x4' | 'sport_coupe' | 'city_bus' | 'box_truck';
 
 export type GearValue = 'R' | 'N' | 1 | 2 | 3 | 4 | 5 | 6;
+export type AutomaticGearSelector = 'D' | 'R' | 'N';
 
 export type DriveControlKey = 'KeyW' | 'KeyS' | 'KeyA' | 'KeyD' | 'KeyC';
 
@@ -62,6 +63,7 @@ export interface GearboxState {
   clutch: number; // 0 = engaged (pedal up), 1 = disengaged (pedal pressed)
   stalled: boolean;
   autoClutch: boolean;
+  automaticTransmission: boolean;
   shiftFlashTimer: number;
   lastShiftQuality: 'clean' | 'rev_match' | 'lug' | null;
 }
@@ -206,6 +208,7 @@ export interface HudSnapshot {
   clutch: number;
   stalled: boolean;
   autoClutch: boolean;
+  automaticTransmission: boolean;
   handbrake: boolean;
   braking: boolean;
   headlightsOn: boolean;
