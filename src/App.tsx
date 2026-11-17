@@ -34,6 +34,7 @@ const INITIAL_HUD: HudSnapshot = {
   activeTrailerLivery: 'auman_silver',
   nearbyHookableTrailer: null,
   trailerActionNotice: null,
+  shiftNotice: null,
   trailersDeliveredCount: 0,
   vehicleId: 'auman_8x4',
   vehicleName: VEHICLE_SPECS.auman_8x4.name,
@@ -162,9 +163,7 @@ export default function App() {
           customCamera={customCamera}
           onCustomCameraChange={(cfg) => gameRef.current?.setCustomCamera(cfg)}
           onSetCameraMode={(m) => gameRef.current?.setCameraMode(m)}
-          onShiftUp={() => gameRef.current?.shiftUp()}
-          onShiftDown={() => gameRef.current?.shiftDown()}
-          onSetGear={(g) => gameRef.current?.setGear(g)}
+          onSetGear={(g) => gameRef.current?.setGear(g) ?? false}
           onDriveControl={handleDriveControl}
           mobileSteeringMode={mobileSteeringMode}
           onMobileSteeringModeChange={setMobileSteeringMode}

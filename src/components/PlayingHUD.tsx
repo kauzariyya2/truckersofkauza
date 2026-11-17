@@ -19,9 +19,7 @@ interface PlayingHUDProps {
   customCamera: CustomCameraSettings;
   onCustomCameraChange: (next: CustomCameraSettings) => void;
   onSetCameraMode: (mode: CameraMode) => void;
-  onShiftUp: () => void;
-  onShiftDown: () => void;
-  onSetGear: (gear: GearValue) => void;
+  onSetGear: (gear: GearValue) => boolean;
   onDriveControl: (key: DriveControlKey, amount: number) => void;
   mobileSteeringMode: MobileSteeringMode;
   onMobileSteeringModeChange: (mode: MobileSteeringMode) => void;
@@ -38,8 +36,6 @@ interface PlayingHUDProps {
   onToggleMute: () => void;
   onPause: () => void;
 }
-
-const GEARS: GearValue[] = ['R', 'N', 1, 2, 3, 4, 5, 6];
 
 const CAMERA_LABELS: Record<CameraMode, string> = {
   chase: 'CHASE',
@@ -75,8 +71,6 @@ export function PlayingHUD({
   customCamera,
   onCustomCameraChange,
   onSetCameraMode,
-  onShiftUp,
-  onShiftDown,
   onSetGear,
   onDriveControl,
   mobileSteeringMode,
@@ -268,19 +262,22 @@ export function PlayingHUD({
   return (
     <div className="game-hud fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 select-none">
       {/* TOP-CENTER HOOK / DELIVERY NOTIFICATION */}
-      {(hud.nearbyHookableTrailer || hud.trailerActionNotice) && (
+      {(hud.nearbyHookableTrailer || hud.trailerActionNotice || hud.shiftNotice) && (
         <div className="fixed top-[108px] left-1/2 -translate-x-1/2 pointer-events-none z-20">
           <div
             data-testid="hud-trailer-notice"
             className={`px-4 py-1.5 rounded border text-xs font-extrabold uppercase tracking-[0.14em] shadow-lg ${
-              hud.nearbyHookableTrailer
+              hud.shiftNotice
+                ? 'bg-amber-950/95 border-amber-400 text-amber-200'
+                : hud.nearbyHookableTrailer
                 ? 'bg-emerald-950/95 border-emerald-400 text-emerald-200'
                 : 'bg-[#0c1320]/95 border-sky-400 text-sky-200'
             }`}
           >
-            {hud.nearbyHookableTrailer
-              ? `Kingpin Aligned — Press [T] to Hook ${hud.nearbyHookableTrailer}`
-              : hud.trailerActionNotice}
+            {hud.shiftNotice ||
+              (hud.nearbyHookableTrailer
+                ? `Kingpin Aligned — Press [T] to Hook ${hud.nearbyHookableTrailer}`
+                : hud.trailerActionNotice)}
           </div>
         </div>
       )}
@@ -910,49 +907,7 @@ export function PlayingHUD({
         </div>
       </div>
 
-      <div className="mobile-h-pattern pointer-events-auto">
-        <span className="mobile-h-pattern-label">GEAR</span>
-        <div className="mobile-h-pattern-track">
-          <span className="mobile-h-pattern-line mobile-h-pattern-horizontal" />
-          <span className="mobile-h-pattern-line mobile-h-pattern-vertical mobile-h-pattern-left" />
-          <span className="mobile-h-pattern-line mobile-h-pattern-vertical mobile-h-pattern-center" />
-          <span className="mobile-h-pattern-line mobile-h-pattern-vertical mobile-h-pattern-right" />
-          {[
-            { gear: 1, position: 'mobile-gear-top-left' },
-            { gear: 2, position: 'mobile-gear-bottom-left' },
-            { gear: 3, position: 'mobile-gear-top-center' },
-            { gear: 4, position: 'mobile-gear-bottom-center' },
-            { gear: 5, position: 'mobile-gear-top-right' },
-            { gear: 6, position: 'mobile-gear-bottom-right' },
-          ].map(({ gear, position }) => (
-            <button
-              key={gear}
-              type="button"
-              aria-label={`Gear ${gear}`}
-              className={`mobile-h-pattern-gear ${position} ${hud.gear === gear ? 'is-selected' : ''}`}
-              onClick={() => onSetGear(gear as GearValue)}
-            >
-              {gear}
-            </button>
-          ))}
-          <button
-            type="button"
-            aria-label="Neutral gear"
-            className={`mobile-h-pattern-neutral ${hud.gear === 'N' ? 'is-selected' : ''}`}
-            onClick={() => onSetGear('N')}
-          >
-            N
-          </button>
-        </div>
-        <button
-          type="button"
-          aria-label="Reverse gear"
-          className={`mobile-h-pattern-reverse ${hud.gear === 'R' ? 'is-selected' : ''}`}
-          onClick={() => onSetGear('R')}
-        >
-          R
-        </button>
-      </div>
+      <ManualGearShifter gear={hud.gear} onSetGear={onSetGear} className="mobile-h-pattern" />
 
       {/* BOTTOM PERIMETER ROW */}
       <div className="game-hud-bottom flex items-end justify-between gap-4">
@@ -1117,59 +1072,152 @@ export function PlayingHUD({
             </span>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <div className="grid grid-cols-4 gap-1">
-              {GEARS.map((g) => {
-                const active = hud.gear === g;
-                return (
-                  <button
-                    key={String(g)}
-                    type="button"
-                    tabIndex={-1}
-                    onClick={(e) => {
-                      e.currentTarget.blur();
-                      onSetGear(g);
-                    }}
-                    className={`w-7 h-7 rounded text-xs font-extrabold border cursor-pointer transition-colors ${
-                      active
-                        ? g === 'R'
-                          ? 'bg-amber-500 border-amber-300 text-slate-950'
-                          : 'bg-[#0284c7] border-[#7dd3fc] text-white'
-                        : 'bg-slate-800/85 border-slate-700 text-slate-300 hover:border-slate-500'
-                    }`}
-                  >
-                    {g}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onShiftDown();
-                }}
-                className="flex-1 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-[10px] font-bold uppercase tracking-wider text-slate-200 cursor-pointer"
-              >
-                [Q] Down
-              </button>
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={(e) => {
-                  e.currentTarget.blur();
-                  onShiftUp();
-                }}
-                className="flex-1 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-[10px] font-bold uppercase tracking-wider text-slate-200 cursor-pointer"
-              >
-                [E] Up
-              </button>
-            </div>
-          </div>
+          <ManualGearShifter gear={hud.gear} onSetGear={onSetGear} className="desktop-h-pattern" />
         </div>
       </div>
+    </div>
+  );
+}
+
+const GEAR_SLOT_POSITIONS: Record<Exclude<GearValue, 'R'>, { x: string; y: string }> = {
+  1: { x: '16.66%', y: '16%' },
+  2: { x: '16.66%', y: '84%' },
+  3: { x: '50%', y: '16%' },
+  4: { x: '50%', y: '84%' },
+  5: { x: '83.33%', y: '16%' },
+  6: { x: '83.33%', y: '84%' },
+  N: { x: '50%', y: '50%' },
+};
+
+function ManualGearShifter({
+  gear,
+  onSetGear,
+  className,
+}: {
+  gear: GearValue;
+  onSetGear: (gear: GearValue) => boolean;
+  className: string;
+}) {
+  const [dragGear, setDragGear] = useState<GearValue | null>(null);
+  const [shiftHint, setShiftHint] = useState('');
+  const activePointer = useRef<number | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!shiftHint) return;
+    const timer = window.setTimeout(() => setShiftHint(''), 1800);
+    return () => window.clearTimeout(timer);
+  }, [shiftHint]);
+
+  const findGearAt = (panel: HTMLDivElement, x: number, y: number): GearValue | null => {
+    const reverse = panel.querySelector<HTMLElement>('[data-gear-reverse]');
+    if (reverse) {
+      const rect = reverse.getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return 'R';
+    }
+
+    const track = panel.querySelector<HTMLElement>('[data-gear-track]');
+    if (!track) return null;
+    const rect = track.getBoundingClientRect();
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
+
+    const column = Math.min(2, Math.floor(((x - rect.left) / rect.width) * 3));
+    const rowPosition = (y - rect.top) / rect.height;
+    if (column === 1 && Math.abs(rowPosition - 0.5) < 0.13) return 'N';
+
+    const rows: Array<Array<Exclude<GearValue, 'R' | 'N'>>> = [
+      [1, 3, 5],
+      [2, 4, 6],
+    ];
+    return rows[rowPosition < 0.5 ? 0 : 1][column];
+  };
+
+  const updateDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (activePointer.current !== event.pointerId || !panelRef.current) return;
+    setDragGear(findGearAt(panelRef.current, event.clientX, event.clientY));
+  };
+
+  const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || !target.closest('[data-gear-shifter-zone]')) return;
+    event.preventDefault();
+    activePointer.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateDrag(event);
+    setShiftHint('');
+  };
+
+  const finishDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (activePointer.current !== event.pointerId) return;
+    const nextGear = panelRef.current
+      ? findGearAt(panelRef.current, event.clientX, event.clientY)
+      : null;
+    activePointer.current = null;
+    setDragGear(null);
+    if (nextGear !== null && !onSetGear(nextGear)) {
+      setShiftHint('Press and hold the clutch to shift');
+    }
+  };
+
+  const cancelDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (activePointer.current !== event.pointerId) return;
+    activePointer.current = null;
+    setDragGear(null);
+  };
+
+  const displayedGear = dragGear ?? gear;
+  const slot = displayedGear === 'R' ? null : GEAR_SLOT_POSITIONS[displayedGear];
+
+  return (
+    <div
+      ref={panelRef}
+      className={`gear-shifter-panel ${className}`}
+      role="group"
+      aria-label="Manual H-pattern gear shifter. Drag the lever to a gear while holding the clutch."
+      onPointerDown={startDrag}
+      onPointerMove={updateDrag}
+      onPointerUp={finishDrag}
+      onPointerCancel={cancelDrag}
+      onLostPointerCapture={cancelDrag}
+    >
+      <div className="gear-shifter-heading">
+        <span>H-PATTERN</span>
+        <span data-testid="hud-gear">{gear}</span>
+      </div>
+      <div className="gear-shifter-track" data-gear-track data-gear-shifter-zone>
+        <span className="gear-shifter-line gear-shifter-horizontal" />
+        <span className="gear-shifter-line gear-shifter-vertical gear-shifter-left" />
+        <span className="gear-shifter-line gear-shifter-vertical gear-shifter-center" />
+        <span className="gear-shifter-line gear-shifter-vertical gear-shifter-right" />
+        {([
+          { value: 1, position: 'mobile-gear-top-left' },
+          { value: 2, position: 'mobile-gear-bottom-left' },
+          { value: 3, position: 'mobile-gear-top-center' },
+          { value: 4, position: 'mobile-gear-bottom-center' },
+          { value: 5, position: 'mobile-gear-top-right' },
+          { value: 6, position: 'mobile-gear-bottom-right' },
+        ] as const).map(({ value, position }) => (
+          <span
+            key={value}
+            className={`gear-shifter-label ${position} ${gear === value ? 'is-selected' : ''}`}
+          >
+            {value}
+          </span>
+        ))}
+        <span className={`gear-shifter-neutral-label ${gear === 'N' ? 'is-selected' : ''}`}>N</span>
+        {slot && (
+          <span
+            className="gear-shifter-lever"
+            style={{ left: slot.x, top: slot.y }}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+      <div className="gear-shifter-reverse-zone" data-gear-reverse data-gear-shifter-zone>
+        <span className="gear-shifter-reverse-label">R</span>
+        {displayedGear === 'R' && <span className="gear-shifter-lever" aria-hidden="true" />}
+      </div>
+      {shiftHint && <div className="gear-shifter-hint" role="status">{shiftHint}</div>}
     </div>
   );
 }

@@ -50,7 +50,7 @@ export interface GameController {
   cycleVehicle: () => void;
   shiftUp: () => void;
   shiftDown: () => void;
-  setGear: (gear: GearValue) => void;
+  setGear: (gear: GearValue) => boolean;
   setDriveControl: (key: DriveControlKey, amount: number) => void;
   toggleHandbrake: () => void;
   toggleAutoClutch: () => void;
@@ -121,6 +121,7 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
   const phaseRef = useRef<GamePhase>(phase);
   phaseRef.current = phase;
   const driveControlsRef = useRef<Record<DriveControlKey, number> | null>(null);
+  const keyboardClutchPressed = useRef(false);
 
   const customCamRef = useRef<CustomCameraSettings>(customCamera);
   customCamRef.current = customCamera;
@@ -152,6 +153,8 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
     trailersDeliveredCount: number;
     trailerNotice: string | null;
     trailerNoticeTimer: number;
+    shiftNotice: string | null;
+    shiftNoticeTimer: number;
     audio: ProceduralVehicleAudio;
     switchRig: (id: VehicleId) => void;
     spawnParticles: (x: number, y: number, z: number, count: number, isSpark: boolean) => void;
@@ -160,6 +163,16 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
     orbitAngle: number;
     snapCamera: boolean;
   } | null>(null);
+
+  const isClutchPressed = () =>
+    keyboardClutchPressed.current || (driveControlsRef.current?.KeyC ?? 0) > 0.05;
+
+  const notifyClutchRequired = () => {
+    const sim = simRef.current;
+    if (!sim) return;
+    sim.shiftNotice = 'Press and hold the clutch to shift gears';
+    sim.shiftNoticeTimer = 2;
+  };
 
   useImperativeHandle(ref, () => ({
     initAudio: () => {
@@ -182,6 +195,10 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
     shiftUp: () => {
       const sim = simRef.current;
       if (!sim) return;
+      if (!isClutchPressed()) {
+        notifyClutchRequired();
+        return;
+      }
       sim.audio.init();
       const spec = VEHICLE_SPECS[sim.vehicleId];
       const res = shiftGearUp(sim.playerState.gearbox, sim.playerState.forwardSpeed, spec);
@@ -193,6 +210,10 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
     shiftDown: () => {
       const sim = simRef.current;
       if (!sim) return;
+      if (!isClutchPressed()) {
+        notifyClutchRequired();
+        return;
+      }
       sim.audio.init();
       const spec = VEHICLE_SPECS[sim.vehicleId];
       const res = shiftGearDown(sim.playerState.gearbox, sim.playerState.forwardSpeed, spec);
@@ -211,7 +232,11 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
     },
     setGear: (gear: GearValue) => {
       const sim = simRef.current;
-      if (!sim) return;
+      if (!sim) return false;
+      if (!isClutchPressed()) {
+        notifyClutchRequired();
+        return false;
+      }
       sim.audio.init();
       const spec = VEHICLE_SPECS[sim.vehicleId];
       const res = setDirectGear(sim.playerState.gearbox, gear, sim.playerState.forwardSpeed, spec);
@@ -219,6 +244,7 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
         sim.playerState.gearbox = res.next;
         sim.audio.playGearShift();
       }
+      return true;
     },
     toggleHandbrake: () => {
       const sim = simRef.current;
@@ -641,6 +667,8 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
       trailersDeliveredCount: 0,
       trailerNotice: null,
       trailerNoticeTimer: 0,
+      shiftNotice: null,
+      shiftNoticeTimer: 0,
       audio,
       switchRig,
       spawnParticles,
@@ -667,6 +695,7 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
     const driveControlKeys: DriveControlKey[] = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyC'];
     const clearHeldControls = () => {
       keysHeld.clear();
+      keyboardClutchPressed.current = false;
       driveControlKeys.forEach((key) => {
         driveControls[key] = 0;
       });
@@ -708,6 +737,17 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
 
       const sim = simRef.current!;
       const spec = VEHICLE_SPECS[sim.vehicleId];
+      const shiftToGear = (gear: GearValue) => {
+        if (!isClutchPressed()) {
+          notifyClutchRequired();
+          return;
+        }
+        const res = setDirectGear(sim.playerState.gearbox, gear, sim.playerState.forwardSpeed, spec);
+        if (res.shifted) {
+          sim.playerState.gearbox = res.next;
+          audio.playGearShift();
+        }
+      };
 
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(code)) {
         e.preventDefault();
@@ -716,37 +756,33 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
       if (!e.repeat) {
         audio.init();
         if (code === 'KeyE') {
-          const res = shiftGearUp(sim.playerState.gearbox, sim.playerState.forwardSpeed, spec);
-          if (res.shifted) {
-            sim.playerState.gearbox = res.next;
-            audio.playGearShift();
-          }
-        } else if (code === 'KeyQ') {
-          const res = shiftGearDown(sim.playerState.gearbox, sim.playerState.forwardSpeed, spec);
-          if (res.shifted) {
-            sim.playerState.gearbox = res.next;
-            audio.playGearShift();
-          }
-        } else if (code === 'KeyN') {
-          const res = setDirectGear(sim.playerState.gearbox, 'N', sim.playerState.forwardSpeed, spec);
-          if (res.shifted) {
-            sim.playerState.gearbox = res.next;
-            audio.playGearShift();
-          }
-        } else if (code === 'KeyR') {
-          const res = setDirectGear(sim.playerState.gearbox, 'R', sim.playerState.forwardSpeed, spec);
-          if (res.shifted) {
-            sim.playerState.gearbox = res.next;
-            audio.playGearShift();
-          }
-        } else if (code.startsWith('Digit')) {
-          const n = Number(code.replace('Digit', ''));
-          if (n >= 1 && n <= 6) {
-            const res = setDirectGear(sim.playerState.gearbox, n as GearValue, sim.playerState.forwardSpeed, spec);
+          if (!isClutchPressed()) {
+            notifyClutchRequired();
+          } else {
+            const res = shiftGearUp(sim.playerState.gearbox, sim.playerState.forwardSpeed, spec);
             if (res.shifted) {
               sim.playerState.gearbox = res.next;
               audio.playGearShift();
             }
+          }
+        } else if (code === 'KeyQ') {
+          if (!isClutchPressed()) {
+            notifyClutchRequired();
+          } else {
+            const res = shiftGearDown(sim.playerState.gearbox, sim.playerState.forwardSpeed, spec);
+            if (res.shifted) {
+              sim.playerState.gearbox = res.next;
+              audio.playGearShift();
+            }
+          }
+        } else if (code === 'KeyN') {
+          shiftToGear('N');
+        } else if (code === 'KeyR') {
+          shiftToGear('R');
+        } else if (code.startsWith('Digit')) {
+          const n = Number(code.replace('Digit', ''));
+          if (n >= 1 && n <= 6) {
+            shiftToGear(n as GearValue);
           }
         } else if (code === 'Space') {
           sim.playerState.handbrake = !sim.playerState.handbrake;
@@ -787,10 +823,15 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
       }
 
       keysHeld.add(code);
+      if (code === 'KeyC' || code === 'ShiftLeft' || code === 'ShiftRight') {
+        keyboardClutchPressed.current = true;
+      }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       keysHeld.delete(e.code);
+      keyboardClutchPressed.current =
+        keysHeld.has('KeyC') || keysHeld.has('ShiftLeft') || keysHeld.has('ShiftRight');
     };
 
     const handleClearHeld = () => {
@@ -911,6 +952,10 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
       if (sim.trailerNoticeTimer > 0) {
         sim.trailerNoticeTimer = Math.max(0, sim.trailerNoticeTimer - dt);
         if (sim.trailerNoticeTimer === 0) sim.trailerNotice = null;
+      }
+      if (sim.shiftNoticeTimer > 0) {
+        sim.shiftNoticeTimer = Math.max(0, sim.shiftNoticeTimer - dt);
+        if (sim.shiftNoticeTimer === 0) sim.shiftNotice = null;
       }
 
       playerState = sim.playerState;
@@ -1227,6 +1272,7 @@ export const GameCanvas = forwardRef<GameController, GameCanvasProps>(function G
             activeTrailerLivery: activeTr ? activeTr.livery : 'auman_silver',
             nearbyHookableTrailer: nearbyTr ? nearbyTr.name : null,
             trailerActionNotice: sim.trailerNotice,
+            shiftNotice: sim.shiftNotice,
             trailersDeliveredCount: sim.trailersDeliveredCount,
             vehicleId: sim.vehicleId,
             vehicleName: spec.name,

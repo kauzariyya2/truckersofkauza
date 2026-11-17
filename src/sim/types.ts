@@ -217,6 +217,7 @@ export interface HudSnapshot {
   activeTrailerLivery: TrailerLivery;
   nearbyHookableTrailer: string | null;
   trailerActionNotice: string | null;
+  shiftNotice: string | null;
   trailersDeliveredCount: number;
   vehicleId: VehicleId;
   vehicleName: string;

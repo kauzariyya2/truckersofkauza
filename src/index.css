@@ -88,6 +88,201 @@ body::after {
   display: none;
 }
 
+.gear-shifter-panel {
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.desktop-h-pattern {
+  display: flex;
+  width: 184px;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.74);
+  color: white;
+  text-align: center;
+}
+
+.gear-shifter-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.gear-shifter-heading [data-testid="hud-gear"] {
+  color: #bae6fd;
+  font-size: 14px;
+}
+
+.gear-shifter-track {
+  position: relative;
+  height: 100px;
+  margin: 0 6px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.gear-shifter-track:active {
+  cursor: grabbing;
+}
+
+.gear-shifter-line {
+  position: absolute;
+  z-index: 0;
+  display: block;
+  border-radius: 2px;
+  background: rgba(203, 213, 225, 0.72);
+  pointer-events: none;
+}
+
+.gear-shifter-horizontal {
+  top: 50%;
+  right: 10%;
+  left: 10%;
+  height: 2px;
+}
+
+.gear-shifter-vertical {
+  top: 12%;
+  bottom: 12%;
+  width: 2px;
+}
+
+.gear-shifter-left {
+  left: 16.66%;
+}
+
+.gear-shifter-center {
+  left: 50%;
+}
+
+.gear-shifter-right {
+  left: 83.33%;
+}
+
+.gear-shifter-label,
+.gear-shifter-neutral-label {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  font-size: 17px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.mobile-gear-top-left {
+  top: 16%;
+  left: 16.66%;
+}
+
+.mobile-gear-bottom-left {
+  top: 84%;
+  left: 16.66%;
+}
+
+.mobile-gear-top-center {
+  top: 16%;
+  left: 50%;
+}
+
+.mobile-gear-bottom-center {
+  top: 84%;
+  left: 50%;
+}
+
+.mobile-gear-top-right {
+  top: 16%;
+  left: 83.33%;
+}
+
+.mobile-gear-bottom-right {
+  top: 84%;
+  left: 83.33%;
+}
+
+.gear-shifter-neutral-label {
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  border-color: rgba(203, 213, 225, 0.82);
+  background: rgba(15, 23, 42, 0.96);
+  font-size: 19px;
+}
+
+.gear-shifter-label.is-selected,
+.gear-shifter-neutral-label.is-selected {
+  border-color: #7dd3fc;
+  background: #0284c7;
+  color: white;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.55);
+}
+
+.gear-shifter-lever {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border: 3px solid #e0f2fe;
+  border-radius: 50%;
+  background: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 6, 23, 0.85), 0 0 12px rgba(56, 189, 248, 0.8);
+  pointer-events: none;
+}
+
+.gear-shifter-reverse-zone {
+  position: relative;
+  display: flex;
+  width: 42px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  margin: 0 3px 0 auto;
+  border: 1px solid rgba(251, 191, 36, 0.65);
+  border-radius: 7px;
+  background: rgba(120, 53, 15, 0.55);
+  color: #fcd34d;
+  font-size: 13px;
+  font-weight: 800;
+  touch-action: none;
+  cursor: grab;
+}
+
+.gear-shifter-reverse-zone .gear-shifter-lever {
+  width: 19px;
+  height: 19px;
+}
+
+.gear-shifter-hint {
+  position: absolute;
+  right: 4px;
+  bottom: -24px;
+  left: 4px;
+  color: #fde68a;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+}
+
 .mobile-portrait-overlay {
   display: none;
 }
@@ -294,7 +489,10 @@ body::after {
     top: 43%;
     right: 10px;
     z-index: 25;
+    display: flex;
     width: 184px;
+    flex-direction: column;
+    gap: 5px;
     padding: 7px 10px;
     transform: translateY(-50%);
     border: 1px solid rgba(148, 163, 184, 0.55);
@@ -302,140 +500,10 @@ body::after {
     background: rgba(2, 6, 23, 0.74);
     color: white;
     text-align: center;
-    touch-action: manipulation;
   }
 
-  .mobile-h-pattern-label {
-    display: block;
-    color: #94a3b8;
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.2em;
-  }
-
-  .mobile-h-pattern-track {
-    position: relative;
+  .mobile-h-pattern .gear-shifter-track {
     height: 94px;
-    margin: 2px 6px 0;
-  }
-
-  .mobile-h-pattern-line {
-    position: absolute;
-    z-index: 0;
-    display: block;
-    border-radius: 2px;
-    background: rgba(203, 213, 225, 0.72);
-    pointer-events: none;
-  }
-
-  .mobile-h-pattern-horizontal {
-    top: 50%;
-    right: 10%;
-    left: 10%;
-    height: 2px;
-  }
-
-  .mobile-h-pattern-vertical {
-    top: 12%;
-    bottom: 12%;
-    width: 2px;
-  }
-
-  .mobile-h-pattern-left {
-    left: 16.66%;
-  }
-
-  .mobile-h-pattern-center {
-    left: 50%;
-  }
-
-  .mobile-h-pattern-right {
-    left: 83.33%;
-  }
-
-  .mobile-h-pattern-gear,
-  .mobile-h-pattern-neutral {
-    position: absolute;
-    z-index: 1;
-    display: flex;
-    width: 32px;
-    height: 32px;
-    align-items: center;
-    justify-content: center;
-    transform: translate(-50%, -50%);
-    border: 1px solid transparent;
-    border-radius: 50%;
-    background: rgba(15, 23, 42, 0.9);
-    color: #e2e8f0;
-    font-size: 17px;
-    font-weight: 700;
-    touch-action: manipulation;
-  }
-
-  .mobile-gear-top-left {
-    top: 16%;
-    left: 16.66%;
-  }
-
-  .mobile-gear-bottom-left {
-    top: 84%;
-    left: 16.66%;
-  }
-
-  .mobile-gear-top-center {
-    top: 16%;
-    left: 50%;
-  }
-
-  .mobile-gear-bottom-center {
-    top: 84%;
-    left: 50%;
-  }
-
-  .mobile-gear-top-right {
-    top: 16%;
-    left: 83.33%;
-  }
-
-  .mobile-gear-bottom-right {
-    top: 84%;
-    left: 83.33%;
-  }
-
-  .mobile-h-pattern-neutral {
-    top: 50%;
-    left: 50%;
-    width: 40px;
-    height: 40px;
-    border-color: rgba(203, 213, 225, 0.82);
-    background: rgba(15, 23, 42, 0.96);
-    font-size: 19px;
-  }
-
-  .mobile-h-pattern-gear.is-selected,
-  .mobile-h-pattern-neutral.is-selected {
-    border-color: #7dd3fc;
-    background: #0284c7;
-    color: white;
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.55);
-  }
-
-  .mobile-h-pattern-reverse {
-    display: block;
-    margin: 1px 3px 0 auto;
-    min-width: 38px;
-    height: 26px;
-    border: 1px solid rgba(251, 191, 36, 0.65);
-    border-radius: 7px;
-    background: rgba(120, 53, 15, 0.55);
-    color: #fcd34d;
-    font-weight: 800;
-    touch-action: manipulation;
-  }
-
-  .mobile-h-pattern-reverse.is-selected {
-    background: #d97706;
-    color: #0f172a;
   }
 
   .title-screen {
