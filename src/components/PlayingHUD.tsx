@@ -938,16 +938,6 @@ export function PlayingHUD({
         </div>
       </div>
 
-      {hud.automaticTransmission ? (
-        <AutomaticGearSelector
-          selected={hud.gear === 'R' || hud.gear === 'N' ? hud.gear : 'D'}
-          onSelect={onSetAutomaticSelector}
-          className="mobile-h-pattern"
-        />
-      ) : (
-        <ManualGearShifter gear={hud.gear} onSetGear={onSetGear} className="mobile-h-pattern" />
-      )}
-
       {/* BOTTOM PERIMETER ROW */}
       <div className="game-hud-bottom flex items-end justify-between gap-4">
         {/* Bottom-Left: Speedometer, RPM & Clutch */}
